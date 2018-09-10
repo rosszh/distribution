@@ -512,8 +512,8 @@ func testBlobAPI(t *testing.T, env *testEnv, args blobArgs) *testEnv {
 
 	// ------------------------------------------
 	// Now, actually do successful upload.
-	layerLength, _ := layerFile.Seek(0, io.SeekEnd)
-	layerFile.Seek(0, io.SeekStart)
+	layerLength, _ := layerFile.Seek(0, os.SEEK_END)
+	layerFile.Seek(0, os.SEEK_SET)
 
 	uploadURLBase, _ = startPushLayer(t, env, imageName)
 	pushLayer(t, env.builder, imageName, layerDigest, uploadURLBase, layerFile)
@@ -674,12 +674,12 @@ func testBlobDelete(t *testing.T, env *testEnv, args blobArgs) {
 
 	// ----------------
 	// Reupload previously deleted blob
-	layerFile.Seek(0, io.SeekStart)
+	layerFile.Seek(0, os.SEEK_SET)
 
 	uploadURLBase, _ := startPushLayer(t, env, imageName)
 	pushLayer(t, env.builder, imageName, layerDigest, uploadURLBase, layerFile)
 
-	layerFile.Seek(0, io.SeekStart)
+	layerFile.Seek(0, os.SEEK_SET)
 	canonicalDigester := digest.Canonical.Digester()
 	if _, err := io.Copy(canonicalDigester.Hash(), layerFile); err != nil {
 		t.Fatalf("error copying to digest: %v", err)
@@ -693,7 +693,7 @@ func testBlobDelete(t *testing.T, env *testEnv, args blobArgs) {
 		t.Fatalf("unexpected error checking head on existing layer: %v", err)
 	}
 
-	layerLength, _ := layerFile.Seek(0, io.SeekEnd)
+	layerLength, _ := layerFile.Seek(0, os.SEEK_END)
 	checkResponse(t, "checking head on reuploaded layer", resp, http.StatusOK)
 	checkHeaders(t, resp, http.Header{
 		"Content-Length":        []string{fmt.Sprint(layerLength)},
@@ -2027,7 +2027,6 @@ func newTestEnvMirror(t *testing.T, deleteEnabled bool) *testEnv {
 			RemoteURL: "http://example.com",
 		},
 	}
-	config.Compatibility.Schema1.Enabled = true
 
 	return newTestEnvWithConfig(t, &config)
 
@@ -2044,7 +2043,6 @@ func newTestEnv(t *testing.T, deleteEnabled bool) *testEnv {
 		},
 	}
 
-	config.Compatibility.Schema1.Enabled = true
 	config.HTTP.Headers = headerConfig
 
 	return newTestEnvWithConfig(t, &config)
@@ -2567,7 +2565,6 @@ func TestProxyManifestGetByTag(t *testing.T) {
 			}},
 		},
 	}
-	truthConfig.Compatibility.Schema1.Enabled = true
 	truthConfig.HTTP.Headers = headerConfig
 
 	imageName, _ := reference.WithName("foo/bar")
@@ -2586,7 +2583,6 @@ func TestProxyManifestGetByTag(t *testing.T) {
 			RemoteURL: truthEnv.server.URL,
 		},
 	}
-	proxyConfig.Compatibility.Schema1.Enabled = true
 	proxyConfig.HTTP.Headers = headerConfig
 
 	proxyEnv := newTestEnvWithConfig(t, &proxyConfig)

@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/docker/distribution"
@@ -22,12 +23,12 @@ var _ ManifestHandler = &manifestListHandler{}
 func (ms *manifestListHandler) Unmarshal(ctx context.Context, dgst digest.Digest, content []byte) (distribution.Manifest, error) {
 	dcontext.GetLogger(ms.ctx).Debug("(*manifestListHandler).Unmarshal")
 
-	m := &manifestlist.DeserializedManifestList{}
-	if err := m.UnmarshalJSON(content); err != nil {
+	var m manifestlist.DeserializedManifestList
+	if err := json.Unmarshal(content, &m); err != nil {
 		return nil, err
 	}
 
-	return m, nil
+	return &m, nil
 }
 
 func (ms *manifestListHandler) Put(ctx context.Context, manifestList distribution.Manifest, skipDependencyVerification bool) (digest.Digest, error) {
@@ -62,10 +63,6 @@ func (ms *manifestListHandler) Put(ctx context.Context, manifestList distributio
 // consumers.
 func (ms *manifestListHandler) verifyManifest(ctx context.Context, mnfst manifestlist.DeserializedManifestList, skipDependencyVerification bool) error {
 	var errs distribution.ErrManifestVerification
-
-	if mnfst.SchemaVersion != 2 {
-		return fmt.Errorf("unrecognized manifest list schema version %d", mnfst.SchemaVersion)
-	}
 
 	if !skipDependencyVerification {
 		// This manifest service is different from the blob service

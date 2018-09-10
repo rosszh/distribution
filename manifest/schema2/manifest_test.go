@@ -56,7 +56,7 @@ func TestManifest(t *testing.T) {
 		t.Fatalf("error creating DeserializedManifest: %v", err)
 	}
 
-	mediaType, canonical, _ := deserialized.Payload()
+	mediaType, canonical, err := deserialized.Payload()
 
 	if mediaType != MediaTypeManifest {
 		t.Fatalf("unexpected media type: %s", mediaType)

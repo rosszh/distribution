@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 
@@ -25,12 +26,12 @@ var _ ManifestHandler = &ocischemaManifestHandler{}
 func (ms *ocischemaManifestHandler) Unmarshal(ctx context.Context, dgst digest.Digest, content []byte) (distribution.Manifest, error) {
 	dcontext.GetLogger(ms.ctx).Debug("(*ocischemaManifestHandler).Unmarshal")
 
-	m := &ocischema.DeserializedManifest{}
-	if err := m.UnmarshalJSON(content); err != nil {
+	var m ocischema.DeserializedManifest
+	if err := json.Unmarshal(content, &m); err != nil {
 		return nil, err
 	}
 
-	return m, nil
+	return &m, nil
 }
 
 func (ms *ocischemaManifestHandler) Put(ctx context.Context, manifest distribution.Manifest, skipDependencyVerification bool) (digest.Digest, error) {
@@ -64,10 +65,6 @@ func (ms *ocischemaManifestHandler) Put(ctx context.Context, manifest distributi
 // valid content, leaving trust policies of that content up to consumers.
 func (ms *ocischemaManifestHandler) verifyManifest(ctx context.Context, mnfst ocischema.DeserializedManifest, skipDependencyVerification bool) error {
 	var errs distribution.ErrManifestVerification
-
-	if mnfst.Manifest.SchemaVersion != 2 {
-		return fmt.Errorf("unrecognized manifest schema version %d", mnfst.Manifest.SchemaVersion)
-	}
 
 	if skipDependencyVerification {
 		return nil

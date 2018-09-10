@@ -17,7 +17,6 @@ package gcs
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -50,8 +49,6 @@ const (
 	uploadSessionContentType = "application/x-docker-upload-session"
 	minChunkSize             = 256 * 1024
 	defaultChunkSize         = 20 * minChunkSize
-	defaultMaxConcurrency    = 50
-	minConcurrency           = 25
 
 	maxTries = 5
 )
@@ -67,12 +64,6 @@ type driverParameters struct {
 	client        *http.Client
 	rootDirectory string
 	chunkSize     int
-
-	// maxConcurrency limits the number of concurrent driver operations
-	// to GCS, which ultimately increases reliability of many simultaneous
-	// pushes by ensuring we aren't DoSing our own server with many
-	// connections.
-	maxConcurrency uint64
 }
 
 func init() {
@@ -96,16 +87,6 @@ type driver struct {
 	privateKey    []byte
 	rootDirectory string
 	chunkSize     int
-}
-
-// Wrapper wraps `driver` with a throttler, ensuring that no more than N
-// GCS actions can occur concurrently. The default limit is 75.
-type Wrapper struct {
-	baseEmbed
-}
-
-type baseEmbed struct {
-	base.Base
 }
 
 // FromParameters constructs a new Driver with a given parameters map
@@ -159,31 +140,6 @@ func FromParameters(parameters map[string]interface{}) (storagedriver.StorageDri
 			return nil, err
 		}
 		ts = jwtConf.TokenSource(context.Background())
-	} else if credentials, ok := parameters["credentials"]; ok {
-		credentialMap, ok := credentials.(map[interface{}]interface{})
-		if !ok {
-			return nil, fmt.Errorf("The credentials were not specified in the correct format")
-		}
-
-		stringMap := map[string]interface{}{}
-		for k, v := range credentialMap {
-			key, ok := k.(string)
-			if !ok {
-				return nil, fmt.Errorf("One of the credential keys was not a string: %s", fmt.Sprint(k))
-			}
-			stringMap[key] = v
-		}
-
-		data, err := json.Marshal(stringMap)
-		if err != nil {
-			return nil, fmt.Errorf("Failed to marshal gcs credentials to json")
-		}
-
-		jwtConf, err = google.JWTConfigFromJSON(data, storage.ScopeFullControl)
-		if err != nil {
-			return nil, err
-		}
-		ts = jwtConf.TokenSource(context.Background())
 	} else {
 		var err error
 		ts, err = google.DefaultTokenSource(context.Background(), storage.ScopeFullControl)
@@ -192,19 +148,13 @@ func FromParameters(parameters map[string]interface{}) (storagedriver.StorageDri
 		}
 	}
 
-	maxConcurrency, err := base.GetLimitFromParameter(parameters["maxconcurrency"], minConcurrency, defaultMaxConcurrency)
-	if err != nil {
-		return nil, fmt.Errorf("maxconcurrency config error: %s", err)
-	}
-
 	params := driverParameters{
-		bucket:         fmt.Sprint(bucket),
-		rootDirectory:  fmt.Sprint(rootDirectory),
-		email:          jwtConf.Email,
-		privateKey:     jwtConf.PrivateKey,
-		client:         oauth2.NewClient(context.Background(), ts),
-		chunkSize:      chunkSize,
-		maxConcurrency: maxConcurrency,
+		bucket:        fmt.Sprint(bucket),
+		rootDirectory: fmt.Sprint(rootDirectory),
+		email:         jwtConf.Email,
+		privateKey:    jwtConf.PrivateKey,
+		client:        oauth2.NewClient(context.Background(), ts),
+		chunkSize:     chunkSize,
 	}
 
 	return New(params)
@@ -228,12 +178,8 @@ func New(params driverParameters) (storagedriver.StorageDriver, error) {
 		chunkSize:     params.chunkSize,
 	}
 
-	return &Wrapper{
-		baseEmbed: baseEmbed{
-			Base: base.Base{
-				StorageDriver: base.NewRegulator(d, params.maxConcurrency),
-			},
-		},
+	return &base.Base{
+		StorageDriver: d,
 	}, nil
 }
 
@@ -918,7 +864,7 @@ func (d *driver) context(context context.Context) context.Context {
 }
 
 func (d *driver) pathToKey(path string) string {
-	return strings.TrimSpace(strings.TrimRight(d.rootDirectory+strings.TrimLeft(path, "/"), "/"))
+	return strings.TrimRight(d.rootDirectory+strings.TrimLeft(path, "/"), "/")
 }
 
 func (d *driver) pathToDirKey(path string) string {

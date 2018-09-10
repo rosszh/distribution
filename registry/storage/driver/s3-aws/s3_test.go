@@ -1,3 +1,6 @@
+//
+// +build include_s3
+
 package s3
 
 import (
@@ -31,7 +34,6 @@ func init() {
 	encrypt := os.Getenv("S3_ENCRYPT")
 	keyID := os.Getenv("S3_KEY_ID")
 	secure := os.Getenv("S3_SECURE")
-	skipVerify := os.Getenv("S3_SKIP_VERIFY")
 	v4Auth := os.Getenv("S3_V4_AUTH")
 	region := os.Getenv("AWS_REGION")
 	objectACL := os.Getenv("S3_OBJECT_ACL")
@@ -60,14 +62,6 @@ func init() {
 			}
 		}
 
-		skipVerifyBool := false
-		if skipVerify != "" {
-			skipVerifyBool, err = strconv.ParseBool(skipVerify)
-			if err != nil {
-				return nil, err
-			}
-		}
-
 		v4Bool := true
 		if v4Auth != "" {
 			v4Bool, err = strconv.ParseBool(v4Auth)
@@ -85,7 +79,6 @@ func init() {
 			encryptBool,
 			keyID,
 			secureBool,
-			skipVerifyBool,
 			v4Bool,
 			minChunkSize,
 			defaultMultipartCopyChunkSize,
@@ -149,14 +142,14 @@ func TestEmptyRootList(t *testing.T) {
 	}
 	defer rootedDriver.Delete(ctx, filename)
 
-	keys, _ := emptyRootDriver.List(ctx, "/")
+	keys, err := emptyRootDriver.List(ctx, "/")
 	for _, path := range keys {
 		if !storagedriver.PathRegexp.MatchString(path) {
 			t.Fatalf("unexpected string in path: %q != %q", path, storagedriver.PathRegexp)
 		}
 	}
 
-	keys, _ = slashRootDriver.List(ctx, "/")
+	keys, err = slashRootDriver.List(ctx, "/")
 	for _, path := range keys {
 		if !storagedriver.PathRegexp.MatchString(path) {
 			t.Fatalf("unexpected string in path: %q != %q", path, storagedriver.PathRegexp)

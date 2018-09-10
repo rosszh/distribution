@@ -7,7 +7,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
 	. "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
@@ -23,14 +22,14 @@ var configStruct = Configuration{
 		AccessLog struct {
 			Disabled bool `yaml:"disabled,omitempty"`
 		} `yaml:"accesslog,omitempty"`
-		Level     Loglevel               `yaml:"level,omitempty"`
+		Level     Loglevel               `yaml:"level"`
 		Formatter string                 `yaml:"formatter,omitempty"`
 		Fields    map[string]interface{} `yaml:"fields,omitempty"`
 		Hooks     []LogHook              `yaml:"hooks,omitempty"`
 	}{
-		Level:  "info",
 		Fields: map[string]interface{}{"environment": "test"},
 	},
+	Loglevel: "info",
 	Storage: Storage{
 		"s3": Parameters{
 			"region":        "us-east-1",
@@ -72,13 +71,12 @@ var configStruct = Configuration{
 		},
 	},
 	HTTP: struct {
-		Addr         string        `yaml:"addr,omitempty"`
-		Net          string        `yaml:"net,omitempty"`
-		Host         string        `yaml:"host,omitempty"`
-		Prefix       string        `yaml:"prefix,omitempty"`
-		Secret       string        `yaml:"secret,omitempty"`
-		RelativeURLs bool          `yaml:"relativeurls,omitempty"`
-		DrainTimeout time.Duration `yaml:"draintimeout,omitempty"`
+		Addr         string `yaml:"addr,omitempty"`
+		Net          string `yaml:"net,omitempty"`
+		Host         string `yaml:"host,omitempty"`
+		Prefix       string `yaml:"prefix,omitempty"`
+		Secret       string `yaml:"secret,omitempty"`
+		RelativeURLs bool   `yaml:"relativeurls,omitempty"`
 		TLS          struct {
 			Certificate string   `yaml:"certificate,omitempty"`
 			Key         string   `yaml:"key,omitempty"`
@@ -128,9 +126,9 @@ var configStruct = Configuration{
 var configYamlV0_1 = `
 version: 0.1
 log:
-  level: info
   fields:
     environment: test
+loglevel: info
 storage:
   s3:
     region: us-east-1
@@ -173,8 +171,7 @@ http:
 // storage driver with no parameters
 var inmemoryConfigYamlV0_1 = `
 version: 0.1
-log:
-  level: info
+loglevel: info
 storage: inmemory
 auth:
   silly:
@@ -215,7 +212,6 @@ func (suite *ConfigSuite) TestMarshalRoundtrip(c *C) {
 	configBytes, err := yaml.Marshal(suite.expectedConfig)
 	c.Assert(err, IsNil)
 	config, err := Parse(bytes.NewReader(configBytes))
-	c.Log(string(configBytes))
 	c.Assert(err, IsNil)
 	c.Assert(config, DeepEquals, suite.expectedConfig)
 }
@@ -338,9 +334,9 @@ func (suite *ConfigSuite) TestParseWithSameEnvLoglevel(c *C) {
 // TestParseWithDifferentEnvLoglevel validates that providing an environment variable defining the
 // log level will override the value provided in the yaml document
 func (suite *ConfigSuite) TestParseWithDifferentEnvLoglevel(c *C) {
-	suite.expectedConfig.Log.Level = "error"
+	suite.expectedConfig.Loglevel = "error"
 
-	os.Setenv("REGISTRY_LOG_LEVEL", "error")
+	os.Setenv("REGISTRY_LOGLEVEL", "error")
 
 	config, err := Parse(bytes.NewReader([]byte(configYamlV0_1)))
 	c.Assert(err, IsNil)

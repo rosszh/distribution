@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -32,12 +33,12 @@ var _ ManifestHandler = &schema2ManifestHandler{}
 func (ms *schema2ManifestHandler) Unmarshal(ctx context.Context, dgst digest.Digest, content []byte) (distribution.Manifest, error) {
 	dcontext.GetLogger(ms.ctx).Debug("(*schema2ManifestHandler).Unmarshal")
 
-	m := &schema2.DeserializedManifest{}
-	if err := m.UnmarshalJSON(content); err != nil {
+	var m schema2.DeserializedManifest
+	if err := json.Unmarshal(content, &m); err != nil {
 		return nil, err
 	}
 
-	return m, nil
+	return &m, nil
 }
 
 func (ms *schema2ManifestHandler) Put(ctx context.Context, manifest distribution.Manifest, skipDependencyVerification bool) (digest.Digest, error) {
@@ -71,10 +72,6 @@ func (ms *schema2ManifestHandler) Put(ctx context.Context, manifest distribution
 // valid content, leaving trust policies of that content up to consumers.
 func (ms *schema2ManifestHandler) verifyManifest(ctx context.Context, mnfst schema2.DeserializedManifest, skipDependencyVerification bool) error {
 	var errs distribution.ErrManifestVerification
-
-	if mnfst.Manifest.SchemaVersion != 2 {
-		return fmt.Errorf("unrecognized manifest schema version %d", mnfst.Manifest.SchemaVersion)
-	}
 
 	if skipDependencyVerification {
 		return nil

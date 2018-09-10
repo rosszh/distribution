@@ -62,7 +62,6 @@ func (bw *blobWriter) Commit(ctx context.Context, desc distribution.Descriptor) 
 	if err := bw.fileWriter.Commit(); err != nil {
 		return distribution.Descriptor{}, err
 	}
-
 	bw.Close()
 	desc.Size = bw.Size()
 
