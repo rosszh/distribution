@@ -804,7 +804,7 @@ func (d *driver) URLFor(ctx context.Context, path string, options map[string]int
 		}
 	}
 
-	expiresIn := 2000000 * time.Minute
+	expiresIn := 20 * time.Minute
 	expires, ok := options["expiry"]
 	if ok {
 		et, ok := expires.(time.Time)
@@ -817,8 +817,9 @@ func (d *driver) URLFor(ctx context.Context, path string, options map[string]int
 		Method:  obs.HttpMethodType(methodString),
 		Bucket:  d.Bucket,
 		Key:     d.obsPath(path),
-		Expires: int(expiresIn) * 600,
+		Expires: int(expiresIn.Seconds()),
 	})
+	fmt.Printf("OBS-URLFor methodString: %s, expiresTime: %v", methodString, int(expiresIn.Seconds()))
 	return output.SignedUrl, err
 }
 
